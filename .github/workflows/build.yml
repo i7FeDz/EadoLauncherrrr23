@@ -11,10 +11,23 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Unzip project
-        run: unzip -o EadoLauncher.zip
+        run: |
+          ls -la
+          Z=$(ls *.zip 2>/dev/null | head -1)
+          if [ -z "$Z" ]; then echo "No .zip file found in the repository"; exit 1; fi
+          echo "Using $Z"
+          unzip -o -q "$Z"
+          if [ ! -d EadoLauncher ]; then
+            D=$(find . -maxdepth 3 -name settings.gradle.kts -printf '%h\n' | head -1)
+            echo "Project found in $D"
+            [ -n "$D" ] && mv "$D" EadoLauncher
+          fi
+          ls -la EadoLauncher
 
       - name: Download the font (Inter, Poppins as backup)
+        continue-on-error: true
         run: |
+          set +e
           F=EadoLauncher/app/src/main/assets/fonts
           mkdir -p $F
           if curl -fsSL -o /tmp/inter.zip https://github.com/rsms/inter/releases/download/v4.0/Inter-4.0.zip; then
@@ -29,6 +42,7 @@ jobs:
             curl -fsSL -o $F/Main-SemiBold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-SemiBold.ttf || true
           fi
           ls -la $F
+          exit 0
 
       - uses: actions/setup-java@v4
         with:
