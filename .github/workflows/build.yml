@@ -1,0 +1,55 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: unzip -o EadoLauncher.zip
+
+      - name: Download the font (Inter, Poppins as backup)
+        run: |
+          F=EadoLauncher/app/src/main/assets/fonts
+          mkdir -p $F
+          if curl -fsSL -o /tmp/inter.zip https://github.com/rsms/inter/releases/download/v4.0/Inter-4.0.zip; then
+            unzip -o -q /tmp/inter.zip -d /tmp/inter
+            R=$(find /tmp/inter -name "Inter-Regular.ttf" | head -1)
+            S=$(find /tmp/inter -name "Inter-SemiBold.ttf" | head -1)
+            [ -n "$R" ] && cp "$R" $F/Main-Regular.ttf
+            [ -n "$S" ] && cp "$S" $F/Main-SemiBold.ttf
+          fi
+          if [ ! -f $F/Main-Regular.ttf ]; then
+            curl -fsSL -o $F/Main-Regular.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Regular.ttf || true
+            curl -fsSL -o $F/Main-SemiBold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-SemiBold.ttf || true
+          fi
+          ls -la $F
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build APK
+        working-directory: EadoLauncher
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Put the APK and the install files together
+        run: |
+          mkdir -p out/apps
+          cp EadoLauncher/app/build/outputs/apk/debug/app-debug.apk out/
+          cp EadoLauncher/tools/* out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EadoLauncher-apk
+          path: out/
